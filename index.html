@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonia Classifier</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: url('/static/background.webp') no-repeat center center fixed;
+            background-size: cover;
+            color: #333;
+            animation: fadeInBackground 2s ease-in-out;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            transition: background 0.3s ease, transform 0.5s ease;
+        }
+
+        .container:hover {
+            background: rgba(255, 255, 255, 0.8);
+            transform: translateY(-10px);
+        }
+
+        .container h1 {
+            font-size: 2.8em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .dropzone {
+            border: 2px dashed #2196f3;
+            padding: 50px;
+            border-radius: 12px;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.5);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .dropzone.dragover {
+            background-color: #e3f2fd;
+            border-color: #042546;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #388e3c;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        #loading {
+            display: none;
+            font-size: 16px;
+            color: #555;
+            margin-top: 15px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        #loading svg {
+            margin-left: 10px;
+            animation: spin 1s linear infinite;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #fileName {
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #555;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        #errorMessage {
+            color: red;
+            font-size: 1.1em;
+            margin-top: 10px;
+            display: none;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        footer a {
+            color: #2196f3;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        footer a:hover {
+            color: #1976d2;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInBackground {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" role="main" aria-label="Pneumonia Classifier">
+        <h1>Pneumonia Classifier</h1>
+        <div class="dropzone" id="dropzone" aria-label="File drop area">Drag & Drop Your Image Here or Click to Browse</div>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" id="fileInput" accept="image/*" required>
+            <button type="submit" aria-label="Upload and Predict">Upload and Predict</button>
+        </form>
+        <div id="fileName"></div>
+        <div id="loading" role="status">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="#2196f3" fill="none">
+                  <animate
+                    attributeName="stroke-width"
+                    values="1;15;1;15"
+                    dur="1.2s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              </svg>
+             &nbsp;&nbsp;&nbsp;Loading, please wait...
+        </div>
+        <div id="result" class="fade-in" aria-live="polite">
+            <p id="prediction"></p>
+            <p id="confidence"></p>
+        </div>
+        <div id="errorMessage" role="alert"></div>
+        <footer>
+            <p>Created by TechnoPhantom</p>
+        </footer>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadForm = document.getElementById('uploadForm');
+        const fileName = document.getElementById('fileName');
+        const loadingIndicator = document.getElementById('loading');
+        const resultContainer = document.getElementById('result');
+        const errorMessage = document.getElementById('errorMessage');
+
+        dropzone.addEventListener('dragover', function(event) {
+            event.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', function(event) {
+            event.preventDefault();
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', function(event) {
+            event.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            if (file) {
+                if (!file.type.startsWith('image/')) {
+                    errorMessage.textContent = 'Please upload an image file!';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+                errorMessage.style.display = 'none';
+                fileInput.files = event.dataTransfer.files;
+                fileName.textContent = `Uploaded file: ${file.name}`;
+            }
+        });
+
+        dropzone.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function() {
+            const file = fileInput.files[0];
+            if (!file.type.startsWith('image/')) {
+                errorMessage.textContent = 'Please upload an image file!';
+                errorMessage.style.display = 'block';
+                fileInput.value = ''; // Clear the input
+                fileName.textContent = '';
+                return;
+            }
+            errorMessage.style.display = 'none';
+            fileName.textContent = `Uploaded file: ${file.name}`;
+        });
+
+        uploadForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const file = fileInput.files[0];
+            if (!file) {
+                errorMessage.textContent = 'Please select a file!';
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            errorMessage.style.display = 'none';
+            loadingIndicator.style.display = 'block';
+            resultContainer.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                loadingIndicator.style.display = 'none';
+                resultContainer.style.display = 'block';
+                document.getElementById('prediction').innerText = `Prediction: ${result.prediction}`;
+                document.getElementById('confidence').innerText = `Chances of pneumonia: ${(result.confidence * 100).toFixed(2)}%`;
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+                loadingIndicator.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
